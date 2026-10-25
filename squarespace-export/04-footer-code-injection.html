@@ -1,0 +1,261 @@
+<!-- ==========================================================================
+     APEXIA LEARNING — SQUARESPACE FOOTER CODE INJECTION
+     Paste in: Settings -> Advanced -> Code Injection -> FOOTER
+     (Or Page Settings -> Advanced -> Page Header/Footer Code Injection)
+     ========================================================================== -->
+<script>
+/**
+ * Apexia Learning — Frontend Interactions & Behaviors
+ * No-build vanilla JS (ES6+)
+ */
+
+document.addEventListener('DOMContentLoaded', () => {
+  initHeader();
+  initMobileNav();
+  initActiveNav();
+  initDisciplinePreselection();
+  initContactForm();
+  initCopyButtons();
+  initScrollReveal();
+  initYear();
+});
+
+/* 1. Header scroll state (switch logo & glass backdrop) */
+function initHeader() {
+  const header = document.getElementById('site-header');
+  if (!header) return;
+
+  function update() {
+    if (window.scrollY > 40) {
+      header.classList.add('is-scrolled');
+    } else {
+      header.classList.remove('is-scrolled');
+    }
+  }
+
+  window.addEventListener('scroll', update, { passive: true });
+  update();
+}
+
+/* 2. Mobile navigation drawer */
+function initMobileNav() {
+  const toggle = document.getElementById('menu-toggle');
+  const nav = document.getElementById('site-nav');
+  if (!toggle || !nav) return;
+
+  function setOpen(open) {
+    document.body.classList.toggle('nav-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  }
+
+  toggle.addEventListener('click', () => {
+    const isOpen = document.body.classList.contains('nav-open');
+    setOpen(!isOpen);
+  });
+
+  // Close when clicking nav links
+  nav.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => setOpen(false));
+  });
+
+  // Close on Escape key
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('nav-open')) {
+      setOpen(false);
+      toggle.focus();
+    }
+  });
+}
+
+/* 3. Active nav highlighting on scroll */
+function initActiveNav() {
+  const navLinks = document.querySelectorAll('.nav a[href^="#"]');
+  const sections = [];
+
+  navLinks.forEach(link => {
+    const id = link.getAttribute('href').substring(1);
+    if (!id || id === 'top') return;
+    const target = document.getElementById(id);
+    if (target) sections.push({ id, target, link });
+  });
+
+  if (!sections.length) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('is-active'));
+        const active = sections.find(s => s.target === entry.target);
+        if (active) active.link.classList.add('is-active');
+      }
+    });
+  }, {
+    rootMargin: '-30% 0px -60% 0px'
+  });
+
+  sections.forEach(s => observer.observe(s.target));
+}
+
+/* 4. Pre-select project type from service CTAs */
+function initDisciplinePreselection() {
+  const links = document.querySelectorAll('[data-discipline]');
+  const select = document.getElementById('f-type');
+  if (!select) return;
+
+  const requestedType = new URLSearchParams(window.location.search).get('type');
+  if (requestedType && select.querySelector(`option[value="${requestedType}"]`)) {
+    select.value = requestedType;
+  }
+
+  links.forEach(link => {
+    link.addEventListener('click', () => {
+      const discipline = link.dataset.discipline;
+      if (discipline && select.querySelector(`option[value="${discipline}"]`)) {
+        select.value = discipline;
+      }
+    });
+  });
+}
+
+/* 5. Form validation & mailto dispatch */
+function initContactForm() {
+  const form = document.getElementById('contact-form');
+  const status = document.getElementById('form-status');
+  if (!form) return;
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    let valid = true;
+    const nameInput = document.getElementById('f-name');
+    const emailInput = document.getElementById('f-email');
+    const orgInput = document.getElementById('f-org');
+    const typeSelect = document.getElementById('f-type');
+    const msgInput = document.getElementById('f-msg');
+
+    // Reset error states
+    form.querySelectorAll('.field').forEach(f => f.classList.remove('has-error'));
+
+    if (!nameInput.value.trim()) {
+      nameInput.closest('.field').classList.add('has-error');
+      valid = false;
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailInput.value.trim() || !emailPattern.test(emailInput.value.trim())) {
+      emailInput.closest('.field').classList.add('has-error');
+      valid = false;
+    }
+
+    if (!msgInput.value.trim()) {
+      msgInput.closest('.field').classList.add('has-error');
+      valid = false;
+    }
+
+    if (!valid) {
+      const firstErr = form.querySelector('.field.has-error input, .field.has-error textarea');
+      if (firstErr) firstErr.focus();
+      return;
+    }
+
+    const name = nameInput.value.trim();
+    const email = emailInput.value.trim();
+    const org = orgInput ? orgInput.value.trim() : '';
+    const type = typeSelect ? typeSelect.options[typeSelect.selectedIndex].text : '';
+    const msg = msgInput.value.trim();
+
+    const subject = `Apexia Project Inquiry: ${org ? `${org} - ` : ''}${name}`;
+    const body = `Hello Apexia Learning,\n\nI would like to discuss a project with your studio:\n\n` +
+                 `Name: ${name}\n` +
+                 `Email: ${email}\n` +
+                 `Organization: ${org || 'N/A'}\n` +
+                 `Discipline: ${type}\n\n` +
+                 `Project Scope & Requirements:\n${msg}\n\n` +
+                 `Best regards,\n${name}`;
+
+    const mailto = `mailto:contact@apexia-learning.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    if (status) {
+      status.textContent = 'Opening your email client to send your inquiry to contact@apexia-learning.com…';
+      status.classList.add('is-visible');
+    }
+
+    window.location.href = mailto;
+  });
+}
+
+/* 6. Copy email address helpers */
+function initCopyButtons() {
+  const buttons = document.querySelectorAll('[data-copy]');
+  const toast = document.getElementById('toast');
+  const toastText = document.getElementById('toast-text');
+  let toastTimer = null;
+
+  function showToast(msg) {
+    if (!toast) return;
+    if (toastText) toastText.textContent = msg;
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('is-visible');
+    }, 2800);
+  }
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const text = btn.dataset.copy || 'contact@apexia-learning.com';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          showToast(`Copied ${text} to clipboard`);
+        } else {
+          // Fallback
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          showToast(`Copied ${text}`);
+        }
+      } catch (err) {
+        showToast(`Address: ${text}`);
+      }
+    });
+  });
+}
+
+/* 7. Intersection observer scroll reveal animations */
+function initScrollReveal() {
+  const items = document.querySelectorAll('[data-reveal]');
+  if (!items.length) return;
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      rootMargin: '0px 0px -60px 0px',
+      threshold: 0.12
+    });
+
+    items.forEach(el => observer.observe(el));
+  } else {
+    items.forEach(el => el.classList.add('is-visible'));
+  }
+}
+
+/* 8. Dynamic copyright year */
+function initYear() {
+  const el = document.getElementById('year');
+  if (el) el.textContent = String(new Date().getFullYear());
+}
+</script>
